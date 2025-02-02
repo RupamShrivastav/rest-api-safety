@@ -5,11 +5,11 @@ app = Flask(__name__)
 
 # Database Connection
 conn = mysql.connector.connect(
-    host="mysql-4a991a1-abarakadabara698-7bd8.c.aivencloud.com",
+    host="safety-mysql-bd0690f-rpmshrivastav-dfb1.f.aivencloud.com",
     user="avnadmin",
-    password="AVNS_Rfu9thyCzg-r-9CcyXE",
+    password="AVNS_6UIkNMMYTeP2qA8yFEX",
     database="defaultdb",
-    port=10038
+    port=23374
 )
 cursor = conn.cursor(dictionary=True)
 
