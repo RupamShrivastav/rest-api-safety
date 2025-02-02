@@ -3,7 +3,6 @@ import mysql.connector
 
 app = Flask(__name__)
 
-
 # Database Connection
 conn = mysql.connector.connect(
     host="mysql-4a991a1-abarakadabara698-7bd8.c.aivencloud.com",
