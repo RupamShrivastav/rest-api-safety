@@ -83,6 +83,22 @@ def get_all_users():
     users = cursor.fetchall()
     return jsonify(users)
 
+@app.route("/users/verify-user", methods=["POST"]) 
+def verify_user(): 
+    data = request.json 
+    email = data["email"] 
+    password = data["password"] 
+ 
+    cursor.execute("SELECT * FROM UserData WHERE Email = %s", (email,)) 
+    user = cursor.fetchone() 
+ 
+    if user: 
+        if user["Password"] == password: 
+            return jsonify({"status": "verified", "user_data": user}), 200 
+        else: 
+            return jsonify({"status": "password_wrong"}), 401 
+    else: 
+        return jsonify({"status": "user_not_found"}), 404
 
 if __name__ == "__main__":
     app.run(debug=True)
