@@ -17,37 +17,16 @@ cursor = conn.cursor(dictionary=True)
 @app.route("/user", methods=["POST"])
 def create_user():
     data = request.json
-
-    # Check if the email already exists
-    email_check_sql = "SELECT * FROM UserData WHERE Email = %s"
-    cursor.execute(email_check_sql, (data["Email"],))
-    existing_user = cursor.fetchone()
-
-    if existing_user:
-        return jsonify({"message": "Email already exists"}), 400
-
-    # Check if the organization exists and get its OrganizationID
-    org_check_sql = "SELECT OrganizationID FROM UserData WHERE Organization = %s LIMIT 1"
-    cursor.execute(org_check_sql, (data["Organization"],))
-    existing_org = cursor.fetchone()
-
-    if existing_org:
-        organization_id = existing_org[0]  # Use existing OrganizationID
-    else:
-        organization_id = data["OrganizationID"]  # Assign new OrganizationID
-
-    # Insert the new user
     sql = """
         INSERT INTO UserData (Organization, OrganizationID, FullName, PersonID, Email, Password, PhoneNumber, TrustedContactName, TrustedContactID, TrustedContactNumber)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     """
     cursor.execute(sql, (
-        data["Organization"], organization_id, data["FullName"], data["PersonID"],
+        data["Organization"], data["OrganizationID"], data["FullName"], data["PersonID"],
         data["Email"], data["Password"], data["PhoneNumber"], data["TrustedContactName"],
         data["TrustedContactID"], data["TrustedContactNumber"]
     ))
     conn.commit()
-    
     return jsonify({"message": "User created successfully"}), 201
 
 # Read User
@@ -72,6 +51,15 @@ def delete_user(person_id):
     cursor.execute("DELETE FROM UserData WHERE PersonID = %s", (person_id,))
     conn.commit()
     return jsonify({"message": "User deleted successfully"})
+
+#Update trusted contracts
+@app.route("/updateTrustedContactNumber/<email>", methods=["PUT"])
+def update_trusted_contact_number(email):
+    data = request.json
+    sql = "UPDATE UserData SET TrustedContactName = %s, TrustedContactNumber = %s WHERE Email = %s"
+    cursor.execute(sql, (data["TrustedContactName"], data["TrustedContactNumber"], email))
+    conn.commit()
+    return jsonify({"message": "User updated successfully"})    
 
 # Get all emails for an organization
 @app.route("/organization/<org_name>/emails", methods=["GET"])
