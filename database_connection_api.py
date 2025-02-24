@@ -61,7 +61,6 @@ def create_user():
 
         return jsonify({
             "message": "User created successfully",
-            "user_data": created_user
         }), 201
 
     except mysql.connector.Error as e:
