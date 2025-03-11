@@ -50,7 +50,7 @@ def create_user():
             """, (user_id, data["TrustedContactName"], data["TrustedContactNumber"]))
 
         # Store Security PIN
-        if "SecurityPIN" in data:
+        if "PIN" in data:
             cursor.execute("""
                 INSERT INTO SecurityPIN (UserID, PIN)
                 VALUES (%s, %s)
