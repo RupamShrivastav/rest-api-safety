@@ -54,7 +54,7 @@ def create_user():
             cursor.execute("""
                 INSERT INTO SecurityPIN (UserID, PIN)
                 VALUES (%s, %s)
-            """, (user_id, data["SecurityPIN"]))
+            """, (user_id, data["PIN"]))
 
         conn.commit()
 
@@ -68,7 +68,7 @@ def create_user():
 def forgot_password():
     data = request.json
     user_input = data.get("email_or_phone")
-    security_pin = data.get("SecurityPIN")
+    security_pin = data.get("PIN")
     new_password = data.get("new_password")
 
     if not user_input or not security_pin or not new_password:
@@ -188,7 +188,7 @@ def update_security_pin():
 
         # Update Security PIN
         sql = "UPDATE SecurityPIN SET PIN = %s WHERE UserID = %s"
-        cursor.execute(sql, (data["NewPIN"], user["UserID"]))
+        cursor.execute(sql, (data["NewPIN"], user["Email"]))
         conn.commit()
         return jsonify({"message": "Security PIN updated successfully"})
 
