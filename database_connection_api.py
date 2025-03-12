@@ -12,6 +12,7 @@ conn = mysql.connector.connect(
     port=23374
 )
 cursor = conn.cursor(dictionary=True)
+
 @app.route("/user", methods=["POST"])
 def create_user():
     data = request.json
@@ -51,14 +52,13 @@ def create_user():
 
         # Store Security PIN
         if "PIN" in data:
-            cursor.execute("""
-                INSERT INTO SecurityPIN (UserID, PIN)
-                VALUES (%s, %s)
-            """, (user_id, data["PIN"]))
+            cursor.execute("""INSERT INTO SecurityPIN (UserID, PIN) VALUES (%s, %s)""", (user_id, data["PIN"]))
 
         conn.commit()
+        cursor.execute("SELECT * FROM UserData WHERE Email = %s", (data["Email"],))
+        user = cursor.fetchone()
 
-        return jsonify({"message": "User created successfully"}), 201
+        return jsonify({"message": "User created successfully","user_data": user}), 201
 
     except mysql.connector.Error as e:
         conn.rollback()
@@ -131,16 +131,33 @@ def update_trusted_contact_number(email):
         conn.rollback()
         return jsonify({"message": str(e)}), 500
 
-@app.route("/updateUserPhNoName/<email>", methods=["PUT"])
-def update_user_ph_no_name(email):
+@app.route("/updateUserFullName/<email>", methods=["PUT"])
+def update_user_full_name(email):
     data = request.json
     try:
         sql = """
             UPDATE Users 
-            SET FullName = %s, PhoneNumber = %s 
+            SET FullName = %s 
             WHERE Email = %s
         """
-        cursor.execute(sql, (data["FullName"], data["PhoneNumber"], email))
+        cursor.execute(sql, (data["FullName"], email))
+        conn.commit()
+        return jsonify({"message": "User details updated successfully"})
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"message": str(e)}), 500
+
+@app.route("/updateUserPhoneNo/<email>", methods=["PUT"])
+def update_user_phone_no(email):
+    data = request.json
+    try:
+        sql = """
+            UPDATE Users 
+            SET PhoneNumber = %s 
+            WHERE Email = %s
+        """
+        cursor.execute(sql, (data["PhoneNumber"], email))
         conn.commit()
         return jsonify({"message": "User details updated successfully"})
 
