@@ -13,6 +13,7 @@ conn = mysql.connector.connect(
 )
 cursor = conn.cursor(dictionary=True)
 
+
 @app.route("/user", methods=["POST"])
 def create_user():
     data = request.json
@@ -52,7 +53,11 @@ def create_user():
 
         # Store Security PIN
         if "PIN" in data:
-            cursor.execute("""INSERT INTO SecurityPIN (UserID, PIN) VALUES (%s, %s)""", (user_id, data["PIN"]))
+            pin = data["PIN"]
+            if len(pin) != 5 or not pin.isdigit():
+                return jsonify({"message": "PIN must be 5 digits long"}), 403
+            else:
+                cursor.execute("""INSERT INTO SecurityPIN (UserID, PIN) VALUES (%s, %s)""", (user_id, pin))
 
         conn.commit()
         cursor.execute("SELECT * FROM UserData WHERE Email = %s", (data["Email"],))
@@ -64,7 +69,7 @@ def create_user():
         conn.rollback()
         return jsonify({"message": f"Database error: {str(e)}"}), 500
 
-@app.route("/forgot-password", methods=["POST"])
+@app.route("/forgotPassword", methods=["POST"])
 def forgot_password():
     data = request.json
     user_input = data.get("email_or_phone")
@@ -97,10 +102,12 @@ def forgot_password():
         conn.rollback()
         return jsonify({"message": f"Database error: {str(e)}"}), 500
 
-@app.route("/updateTrustedContactNumber/<email>", methods=["PUT"])
-def update_trusted_contact_number(email):
+@app.route("/updateTrustedContactNumber", methods=["PUT"])
+def update_trusted_contact_number():
     data = request.json
+
     try:
+        email = data["Email"]
         check_sql = """
             SELECT TC.TrustedContactID 
             FROM TrustedContacts TC
@@ -131,46 +138,55 @@ def update_trusted_contact_number(email):
         conn.rollback()
         return jsonify({"message": str(e)}), 500
 
-@app.route("/updateUserFullName/<email>", methods=["PUT"])
-def update_user_full_name(email):
+@app.route("/updateUserFullName", methods=["PUT"])
+def update_user_full_name():
     data = request.json
+    if "Email" not in data or "FullName" not in data:
+        return jsonify({"message": "Email and FullName are required"}), 400
+
     try:
-        sql = """
-            UPDATE Users 
-            SET FullName = %s 
-            WHERE Email = %s
-        """
-        cursor.execute(sql, (data["FullName"], email))
+        cursor.execute("SELECT Email FROM Users WHERE Email = %s", (data["Email"],))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        sql = "UPDATE Users SET FullName = %s WHERE Email = %s"
+        cursor.execute(sql, (data["FullName"], data["Email"]))
         conn.commit()
-        return jsonify({"message": "User details updated successfully"})
+        return jsonify({"message": "User details updated successfully"}), 200
+    except Exception as e:
+        conn.rollback()
+        return jsonify({"message": str(e)}), 500
+
+@app.route("/updateUserPhoneNo", methods=["PUT"])
+def update_user_phone_no():
+    data = request.json
+    if "Email" not in data or "PhoneNumber" not in data:
+        return jsonify({"message": "Email and PhoneNumber are required"}), 400
+
+    try:
+        cursor.execute("SELECT Email FROM Users WHERE Email = %s", (data["Email"],))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify({"message": "User not found"}), 404
+
+        sql = "UPDATE Users SET PhoneNumber = %s WHERE Email = %s"
+        cursor.execute(sql, (data["PhoneNumber"], data["Email"]))
+        conn.commit()
+        return jsonify({"message": "User details updated successfully"}), 200
 
     except Exception as e:
         conn.rollback()
         return jsonify({"message": str(e)}), 500
 
-@app.route("/updateUserPhoneNo/<email>", methods=["PUT"])
-def update_user_phone_no(email):
+@app.route("/updateUserPassword", methods=["PUT"])
+def update_password():
     data = request.json
-    try:
-        sql = """
-            UPDATE Users 
-            SET PhoneNumber = %s 
-            WHERE Email = %s
-        """
-        cursor.execute(sql, (data["PhoneNumber"], email))
-        conn.commit()
-        return jsonify({"message": "User details updated successfully"})
+    if "Email" not in data or "OldPassword" not in data or "NewPassword" not in data:
+        return jsonify({"message": "Email, OldPassword, and NewPassword are required"}), 400
 
-    except Exception as e:
-        conn.rollback()
-        return jsonify({"message": str(e)}), 500
-
-@app.route("/updateUserPassword/<email>", methods=["PUT"])
-def update_password(email):
-    data = request.json
     try:
-        # Step 1: Retrieve the current password from the database
-        cursor.execute("SELECT Password FROM Users WHERE Email = %s", (email,))
+        cursor.execute("SELECT Password FROM Users WHERE Email = %s", (data["Email"],))
         user = cursor.fetchone()
 
         if not user:
@@ -178,36 +194,63 @@ def update_password(email):
 
         stored_password = user["Password"]
 
-        # Compare OldPassword with stored password
         if stored_password != data["OldPassword"]:
-            return jsonify({"message": "Old password is incorrect"}), 400
+            return jsonify({"message": "Old password is incorrect"}), 403
 
-        # Step 3: Update password only if old password is correct
-        cursor.execute("UPDATE Users SET Password = %s WHERE Email = %s", (data["NewPassword"], email))
+        cursor.execute("UPDATE Users SET Password = %s WHERE Email = %s", (data["NewPassword"], data["Email"]))
         conn.commit()
 
-        return jsonify({"message": "Password updated successfully"})
+        return jsonify({"message": "Password updated successfully"}), 200
 
     except Exception as e:
         conn.rollback()
         return jsonify({"message": str(e)}), 500
 
-@app.route("/user/update-pin", methods=["PUT"])
+@app.route("/user/updateSecurityPin", methods=["PUT"])
 def update_security_pin():
     data = request.json
     try:
+        email = data.get("Email")
+        new_pin = data.get("NewPIN")
+        current_pin = data.get("OldPIN")
+        current_password = data.get("Password")
+
+        if not email or not new_pin:
+            return jsonify({"message": "Email and NewPIN are required"}), 400
+
         # Check if the user exists
-        cursor.execute("SELECT UserID FROM Users WHERE Email = %s", (data["Email"],))
+        cursor.execute("""
+            SELECT U.UserID, U.Password, S.PIN 
+            FROM Users U 
+            LEFT JOIN SecurityPIN S ON U.UserID = S.UserID 
+            WHERE U.Email = %s
+        """, (email,))
         user = cursor.fetchone()
 
         if not user:
             return jsonify({"message": "User not found"}), 404
 
+        user_id = user["UserID"]
+        stored_password = user["Password"]
+        stored_pin = user["PIN"]
+
+        # Validate authentication (either PIN or Password must be provided and correct)
+        if len(new_pin) != 5 and new_pin.isdigit():
+            return jsonify({"message": "PIN must be 5 digits long"}), 400
+        
+        if current_pin and stored_pin == current_pin:
+            pass
+        elif current_password and stored_password == current_password:
+            pass
+        else:
+            return jsonify({"message": "Invalid PIN or Password"}), 403  # Forbidden
+
         # Update Security PIN
         sql = "UPDATE SecurityPIN SET PIN = %s WHERE UserID = %s"
-        cursor.execute(sql, (data["NewPIN"], user["Email"]))
+        cursor.execute(sql, (new_pin, user_id))
         conn.commit()
-        return jsonify({"message": "Security PIN updated successfully"})
+        
+        return jsonify({"message": "Security PIN updated successfully"}), 200
 
     except Exception as e:
         conn.rollback()
@@ -237,13 +280,13 @@ def get_users_by_emails():
     users = cursor.fetchall()
     return jsonify(users)
 
-@app.route("/allusers", methods=["GET"])
+@app.route("/allUsers", methods=["GET"])
 def get_all_users():
     cursor.execute("SELECT * FROM UserData")
     users = cursor.fetchall()
     return jsonify(users)
 
-@app.route("/users/verify-user", methods=["POST"])
+@app.route("/users/verifyUser", methods=["POST"])
 def verify_user():
     data = request.json
     email = data["email"]
