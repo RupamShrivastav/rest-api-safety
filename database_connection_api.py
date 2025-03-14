@@ -206,7 +206,7 @@ def update_password():
         conn.rollback()
         return jsonify({"message": str(e)}), 500
 
-@app.route("/user/updateSecurityPin", methods=["PUT"])
+@app.route("/updateUserSecurityPin", methods=["PUT"])
 def update_security_pin():
     data = request.json
     try:
@@ -256,33 +256,9 @@ def update_security_pin():
         conn.rollback()
         return jsonify({"message": str(e)}), 500
 
-@app.route("/organization/<org_name>/emails", methods=["GET"])
-def get_emails_by_org(org_name):
-    cursor.execute("SELECT Email FROM UserData WHERE Organization = %s", (org_name,))
-    emails = cursor.fetchall()
-    return jsonify(emails)
-
 @app.route("/organization/<org_name>/users", methods=["GET"])
 def get_users_by_org(org_name):
     cursor.execute("SELECT * FROM UserData WHERE Organization = %s", (org_name,))
-    users = cursor.fetchall()
-    return jsonify(users)
-
-@app.route("/users/by-email", methods=["POST"])
-def get_users_by_emails():
-    data = request.json
-    emails = tuple(data["emails"])
-    if not emails:
-        return jsonify({"message": "No emails provided"}), 400
-
-    sql = f"SELECT * FROM UserData WHERE Email IN ({','.join(['%s'] * len(emails))})"
-    cursor.execute(sql, emails)
-    users = cursor.fetchall()
-    return jsonify(users)
-
-@app.route("/allUsers", methods=["GET"])
-def get_all_users():
-    cursor.execute("SELECT * FROM UserData")
     users = cursor.fetchall()
     return jsonify(users)
 
@@ -302,7 +278,31 @@ def verify_user():
             return jsonify({"status": "password_wrong"}), 401
     else:
         return jsonify({"status": "user_not_found"}), 404
-    
+
+@app.route("/organization/<org_name>/emails", methods=["GET"])
+def get_emails_by_org(org_name):
+    cursor.execute("SELECT Email FROM UserData WHERE Organization = %s", (org_name,))
+    emails = cursor.fetchall()
+    return jsonify(emails)
+
+@app.route("/users/by-email", methods=["POST"])
+def get_users_by_emails():
+    data = request.json
+    emails = tuple(data["emails"])
+    if not emails:
+        return jsonify({"message": "No emails provided"}), 400
+
+    sql = f"SELECT * FROM UserData WHERE Email IN ({','.join(['%s'] * len(emails))})"
+    cursor.execute(sql, emails)
+    users = cursor.fetchall()
+    return jsonify(users)
+
+@app.route("/allUsers", methods=["GET"])
+def get_all_users():
+    cursor.execute("SELECT * FROM UserData")
+    users = cursor.fetchall()
+    return jsonify(users)
+
 if __name__ == "__main__":
     app.run(debug=True)
     
