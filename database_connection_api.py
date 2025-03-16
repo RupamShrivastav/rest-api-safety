@@ -273,11 +273,11 @@ def verify_user():
 
     if user:
         if user["Password"] == password:
-            return jsonify({"status": "verified", "user_data": user}), 200
+            return jsonify({"status": "Welcome Back !", "user_data": user}), 200
         else:
-            return jsonify({"status": "password_wrong"}), 401
+            return jsonify({"status": "Password Wrong"}), 401
     else:
-        return jsonify({"status": "user_not_found"}), 404
+        return jsonify({"status": "User Not Found"}), 404
 
 @app.route("/organization/<org_name>/emails", methods=["GET"])
 def get_emails_by_org(org_name):
